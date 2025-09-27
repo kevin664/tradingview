@@ -107,33 +107,33 @@ namespace NinjaTrader.NinjaScript.Indicators
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
 			Values[0][0] = emaPercentageChange;
 
-			// --- Manual Candle Drawing Logic (Correct Overlay Implementation) ---
+			// --- Manual Candle Drawing Logic (Correct Overlay & NaN Check Implementation) ---
 			if (IsFirstTickOfBar)
 			{
 				// Layer 1: Yellow
 				string yellowTag = "YellowCandle" + CurrentBar;
-				if (emaPercentageChange > Values[0][1] && !double.IsNaN(percentageChange[0]))
+				if (!double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && !double.IsNaN(percentageChange[0]) && emaPercentageChange > Values[0][1])
 					Draw.Rectangle(this, yellowTag, false, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
 				else
 					RemoveDrawObject(yellowTag);
 
 				// Layer 2: Green
 				string greenTag = "GreenCandle" + CurrentBar;
-				if (percentageChange[0] > percentageChange[1] && !double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange))
+				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] > percentageChange[1])
 					Draw.Rectangle(this, greenTag, false, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
 				else
 					RemoveDrawObject(greenTag);
 
 				// Layer 3: Red
 				string redTag = "RedCandle" + CurrentBar;
-				if (percentageChange[0] < percentageChange[1] && !double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange))
+				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] < percentageChange[1])
 					Draw.Rectangle(this, redTag, false, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
 				else
 					RemoveDrawObject(redTag);
 
 				// Layer 4: Fuchsia (Top Layer)
 				string fuchsiaTag = "FuchsiaCandle" + CurrentBar;
-				if (percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1] && !double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange))
+				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1])
 					Draw.Rectangle(this, fuchsiaTag, false, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
 				else
 					RemoveDrawObject(fuchsiaTag);
