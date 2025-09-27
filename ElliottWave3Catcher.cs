@@ -150,22 +150,24 @@ namespace NinjaTrader.NinjaScript.Indicators
 			Values[0][0] = percentageChange[0];
 			Values[1][0] = emaPercentageChange;
 
-			// --- Corrected Histogram Coloring ---
-			bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[1][1];
-			bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
-			bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
-			bool isYellow = !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && emaPercentageChange > Values[1][1];
+			// --- Fully Corrected Histogram Coloring (Overlay Logic) ---
+			PlotBrushes[0][0] = Brushes.Transparent; // Default
 
-			if (isFuchsia)
-				PlotBrushes[0][0] = FuchsiaBrush;
-			else if (isRed)
-				PlotBrushes[0][0] = RedBrush;
-			else if (isGreen)
-				PlotBrushes[0][0] = GreenBrush;
-			else if (isYellow)
+			bool isYellow = !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && emaPercentageChange > Values[1][1];
+			if(isYellow)
 				PlotBrushes[0][0] = YellowBrush;
-			else
-				PlotBrushes[0][0] = Brushes.Transparent;
+
+			bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
+			if(isGreen)
+				PlotBrushes[0][0] = GreenBrush;
+
+			bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
+			if(isRed)
+				PlotBrushes[0][0] = RedBrush;
+
+			bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[1][1];
+			if(isFuchsia)
+				PlotBrushes[0][0] = FuchsiaBrush;
 
 			// --- Corrected Background Coloring ---
 			bool isBgFuchsia = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] >= signalLineScaled;
