@@ -81,18 +81,14 @@ namespace NinjaTrader.NinjaScript.Indicators
 		{
 			if (CurrentBar < 50)
 			{
-				if (CurrentBar < 1)
-				{
-					Values[0][0] = double.NaN;
-					percentageChange[0] = double.NaN;
-				}
-				else
+				// Handle initial bars where calculations are not possible
+				if (CurrentBar > 0)
 				{
 					averageSmas[0] = double.NaN;
 					percentageChange[0] = double.NaN;
 					macdLineScaled[0] = double.NaN;
-					Values[0][0] = double.NaN;
 				}
+				Values[0][0] = double.NaN;
 				return;
 			}
 
@@ -113,23 +109,32 @@ namespace NinjaTrader.NinjaScript.Indicators
 			Values[0][0] = emaPercentageChange;
 
 			// --- Manual Candle Drawing Logic ---
+			string rectTag = "Candle" + CurrentBar;
 			if (IsFirstTickOfBar)
 			{
-				bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1];
-				bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
-				bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
-				bool isYellow = !double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && emaPercentageChange > Values[0][1];
+				// Master check: Only proceed if all values needed for drawing are valid numbers.
+				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(Values[0][1]))
+				{
+					bool isFuchsia = percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1];
+					bool isRed = percentageChange[0] < percentageChange[1];
+					bool isGreen = percentageChange[0] > percentageChange[1];
+					bool isYellow = emaPercentageChange > Values[0][1];
 
-				string rectTag = "Candle" + CurrentBar;
-
-				if (isFuchsia)
-					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
-				else if (isRed)
-					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
-				else if (isGreen)
-					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
-				else if (isYellow)
-					Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
+					if (isFuchsia)
+						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
+					else if (isRed)
+						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
+					else if (isGreen)
+						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
+					else if (isYellow)
+						Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
+					else
+						RemoveDrawObject(rectTag); // Explicitly remove if no color condition is met
+				}
+				else
+				{
+					RemoveDrawObject(rectTag); // Explicitly remove if data is invalid
+				}
 			}
 
 			// --- Background Coloring and other calculations ---
