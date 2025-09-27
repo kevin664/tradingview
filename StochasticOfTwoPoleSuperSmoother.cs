@@ -128,7 +128,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 			double stochValue = 50;
 
 			double range = fmax - fmin;
-			if (!range.ApproxCompare(0))
+			if (range.ApproxCompare(0) != 0)
 			{
 				stochValue = 100 * (ssm[0] - fmin) / range;
 			}

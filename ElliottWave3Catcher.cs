@@ -52,8 +52,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 				ScaleJustification							= NinjaTrader.Gui.Chart.ScaleJustification.Right;
 				IsSuspendedWhileInactive					= true;
 
-				// Plots
-				AddPlot(new Stroke(Brushes.Transparent, 2), PlotStyle.Histogram, "PercentageChange");
+				// Plots - Only plot the EMA line. Candles/Bars will be drawn manually.
 				AddPlot(Brushes.DarkGray, "EmaPercentageChange");
 
 				// Zero line
@@ -89,7 +88,6 @@ namespace NinjaTrader.NinjaScript.Indicators
 			{
 				percentageChange[0] = double.NaN;
 				Values[0][0] = double.NaN;
-				Values[1][0] = double.NaN;
 				return;
 			}
 
@@ -99,7 +97,6 @@ namespace NinjaTrader.NinjaScript.Indicators
 				percentageChange[0] = double.NaN;
 				macdLineScaled[0] = double.NaN;
 				Values[0][0] = double.NaN;
-				Values[1][0] = double.NaN;
 				return;
 			}
 
@@ -117,26 +114,50 @@ namespace NinjaTrader.NinjaScript.Indicators
 				percentageChange[0] = double.NaN;
 
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
+			Values[0][0] = emaPercentageChange; // Set the plot value for the EMA line
 
+			// --- Manual Candle Drawing Logic ---
+			// This section replicates the overlaying `plotcandle` calls from Pine Script.
+			if (IsFirstTickOfBar)
+			{
+				bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1];
+				bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
+				bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
+				bool isYellow = !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && emaPercentageChange > Values[0][1];
+
+				string rectTag = "Candle" + CurrentBar;
+
+				if (isFuchsia)
+				{
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
+				}
+				else if (isRed)
+				{
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
+				}
+				else if (isGreen)
+				{
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
+				}
+				else if (isYellow)
+				{
+					Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
+				}
+			}
+
+			// --- Background Coloring and other calculations ---
 			double close2dAgoScaled = GetValueFromPast(Close, 2) * 0.865;
 			double close13dAgoScaled = GetValueFromPast(Close, 13) * 0.772;
 			double minCloseScaled = Math.Min(close2dAgoScaled, close13dAgoScaled);
 
-			// --- Wave bottom catcher components with added calcs ---
 			int highest50dHighPosition = HighestBar(High, 50);
-			double volumeSumToHighestHigh = SUM(Volume, highest50dHighPosition + 1)[0];
 			double openAtHighestHigh = GetValueFromPast(Open, highest50dHighPosition);
 			double priceChangeFromHighestHighOpen = double.NaN;
 			if(!double.IsNaN(openAtHighestHigh) && openAtHighestHigh.ApproxCompare(0) != 0)
 				priceChangeFromHighestHighOpen = (Close[0] - openAtHighestHigh) / openAtHighestHigh * 100;
 
-			int lowest50dLowPosition = LowestBar(Low, 50);
-			double volumeSumToLowestLow = SUM(Volume, lowest50dLowPosition + 1)[0];
-
-			// Corrected Signal Calculation (includes * 10 as per original script)
 			double waveBottomCatcherSignal = (!double.IsNaN(priceChangeFromHighestHighOpen) && Close[0].ApproxCompare(0) != 0 && ((Close[0] - minCloseScaled) / Close[0] < 0.03 && priceChangeFromHighestHighOpen < -35)) ? 10 : 0;
 
-			// --- Bottom alerts and entries calculations with added calcs ---
 			double prevClose = GetValueFromPast(Close, 1);
 			double dailyPriceChangePercent = double.NaN;
 			if (!double.IsNaN(prevClose) && prevClose.ApproxCompare(0) != 0)
@@ -144,48 +165,17 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 			macdLineScaled[0] = (EMA(12)[0] - EMA(26)[0]) * 100;
 			double signalLineScaled = EMA(macdLineScaled, 9)[0];
-			double macdHistogramScaled = 2 * (macdLineScaled[0] - signalLineScaled);
 
-			// --- Set Plot Values ---
-			Values[0][0] = percentageChange[0];
-			Values[1][0] = emaPercentageChange;
-
-			// --- Fully Corrected Histogram Coloring (Overlay Logic) ---
-			PlotBrushes[0][0] = Brushes.Transparent; // Default
-
-			bool isYellow = !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && emaPercentageChange > Values[1][1];
-			if(isYellow)
-				PlotBrushes[0][0] = YellowBrush;
-
-			bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
-			if(isGreen)
-				PlotBrushes[0][0] = GreenBrush;
-
-			bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
-			if(isRed)
-				PlotBrushes[0][0] = RedBrush;
-
-			bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[1][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[1][1];
-			if(isFuchsia)
-				PlotBrushes[0][0] = FuchsiaBrush;
-
-			// --- Corrected Background Coloring ---
 			bool isBgFuchsia = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] >= signalLineScaled;
 			bool isBgBlue = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] < signalLineScaled;
 			bool isBgAqua = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7;
-			// Faithful conversion of original script's bug: signal is 0 or 10, but bgcolor checks for 1. This will always be false.
 			bool isBgLime = waveBottomCatcherSignal == 1;
 
-			if(isBgFuchsia)
-				BackBrush = FuchsiaBgBrush;
-			else if (isBgBlue)
-				BackBrush = BlueBrush;
-			else if (isBgAqua)
-				BackBrush = AquaBrush;
-			else if (isBgLime)
-				BackBrush = LimeBrush;
-			else
-				BackBrush = null;
+			if(isBgFuchsia) BackBrush = FuchsiaBgBrush;
+			else if (isBgBlue) BackBrush = BlueBrush;
+			else if (isBgAqua) BackBrush = AquaBrush;
+			else if (isBgLime) BackBrush = LimeBrush;
+			else BackBrush = null;
 		}
 
 		#region Helpers
