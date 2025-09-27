@@ -52,19 +52,14 @@ namespace NinjaTrader.NinjaScript.Indicators
 				ScaleJustification							= NinjaTrader.Gui.Chart.ScaleJustification.Right;
 				IsSuspendedWhileInactive					= true;
 
-				// Plots - Only plot the EMA line. Candles/Bars will be drawn manually.
 				AddPlot(Brushes.DarkGray, "EmaPercentageChange");
-
-				// Zero line
 				AddLine(Brushes.Gray, 0, "Zero Line");
 
-				// Colors
 				YellowBrush 	= Brushes.Yellow;
 				GreenBrush 		= Brushes.Green;
 				RedBrush 		= Brushes.Red;
 				FuchsiaBrush 	= Brushes.Fuchsia;
 
-				// Background Brushes
 				LimeBrush 		= new SolidColorBrush(Colors.Lime) { Opacity = 0.6 };
 				LimeBrush.Freeze();
 				AquaBrush 		= new SolidColorBrush(Colors.Aqua) { Opacity = 0.4 };
@@ -84,19 +79,20 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		protected override void OnBarUpdate()
 		{
-			if (CurrentBar < 1)
-			{
-				percentageChange[0] = double.NaN;
-				Values[0][0] = double.NaN;
-				return;
-			}
-
 			if (CurrentBar < 50)
 			{
-				averageSmas[0] = double.NaN;
-				percentageChange[0] = double.NaN;
-				macdLineScaled[0] = double.NaN;
-				Values[0][0] = double.NaN;
+				if (CurrentBar < 1)
+				{
+					Values[0][0] = double.NaN;
+					percentageChange[0] = double.NaN;
+				}
+				else
+				{
+					averageSmas[0] = double.NaN;
+					percentageChange[0] = double.NaN;
+					macdLineScaled[0] = double.NaN;
+					Values[0][0] = double.NaN;
+				}
 				return;
 			}
 
@@ -114,35 +110,26 @@ namespace NinjaTrader.NinjaScript.Indicators
 				percentageChange[0] = double.NaN;
 
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
-			Values[0][0] = emaPercentageChange; // Set the plot value for the EMA line
+			Values[0][0] = emaPercentageChange;
 
 			// --- Manual Candle Drawing Logic ---
-			// This section replicates the overlaying `plotcandle` calls from Pine Script.
 			if (IsFirstTickOfBar)
 			{
 				bool isFuchsia = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1];
 				bool isRed = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] < percentageChange[1];
 				bool isGreen = !double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && percentageChange[0] > percentageChange[1];
-				bool isYellow = !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && emaPercentageChange > Values[0][1];
+				bool isYellow = !double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && emaPercentageChange > Values[0][1];
 
 				string rectTag = "Candle" + CurrentBar;
 
 				if (isFuchsia)
-				{
 					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
-				}
 				else if (isRed)
-				{
 					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
-				}
 				else if (isGreen)
-				{
 					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
-				}
 				else if (isYellow)
-				{
 					Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
-				}
 			}
 
 			// --- Background Coloring and other calculations ---
