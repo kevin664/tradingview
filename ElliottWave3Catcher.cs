@@ -81,7 +81,6 @@ namespace NinjaTrader.NinjaScript.Indicators
 		{
 			if (CurrentBar < 50)
 			{
-				// Handle initial bars where calculations are not possible
 				if (CurrentBar > 0)
 				{
 					averageSmas[0] = double.NaN;
@@ -112,28 +111,30 @@ namespace NinjaTrader.NinjaScript.Indicators
 			string rectTag = "Candle" + CurrentBar;
 			if (IsFirstTickOfBar)
 			{
-				// Master check: Only proceed if all values needed for drawing are valid numbers.
-				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(Values[0][1]))
+				// Highest priority: Fuchsia
+				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1])
 				{
-					bool isFuchsia = percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1];
-					bool isRed = percentageChange[0] < percentageChange[1];
-					bool isGreen = percentageChange[0] > percentageChange[1];
-					bool isYellow = emaPercentageChange > Values[0][1];
-
-					if (isFuchsia)
-						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
-					else if (isRed)
-						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
-					else if (isGreen)
-						Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
-					else if (isYellow)
-						Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
-					else
-						RemoveDrawObject(rectTag); // Explicitly remove if no color condition is met
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
 				}
+				// Red
+				else if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] < percentageChange[1])
+				{
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
+				}
+				// Green
+				else if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] > percentageChange[1])
+				{
+					Draw.Rectangle(this, rectTag, true, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
+				}
+				// Yellow
+				else if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && emaPercentageChange > Values[0][1])
+				{
+					Draw.Rectangle(this, rectTag, true, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
+				}
+				// No condition met
 				else
 				{
-					RemoveDrawObject(rectTag); // Explicitly remove if data is invalid
+					RemoveDrawObject(rectTag);
 				}
 			}
 
