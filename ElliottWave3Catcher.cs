@@ -79,97 +79,102 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		protected override void OnBarUpdate()
 		{
-			// --- Step 1: Perform all calculations and update series ---
-			// This section runs on every bar, populating the series with NaNs until data is sufficient.
-			if (CurrentBar > 0)
+			// --- Step 1: Calculations - Always run, but guard internally ---
+
+			// averageSmas requires SMA(30), which needs 30 bars (index 29)
+			double avgSmaVal = double.NaN;
+			if (CurrentBar >= 29)
 			{
 				double sma5 = SMA(5)[0];
 				double sma10 = SMA(10)[0];
 				double sma20 = SMA(20)[0];
 				double sma30 = SMA(30)[0];
-				averageSmas[0] = (sma5 + sma10 + sma20 + sma30) / 4;
+				avgSmaVal = (sma5 + sma10 + sma20 + sma30) / 4;
+			}
+			averageSmas[0] = avgSmaVal;
 
+			// percentageChange requires averageSmas from 15 bars ago.
+			// avgSmaVal is first valid at bar 29, so we need bar 29 + 15 = 44.
+			double pcVal = double.NaN;
+			if (CurrentBar >= 44)
+			{
 				double previous15dAvg = GetValueFromPast(averageSmas, 15);
-				percentageChange[0] = (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
-					? (averageSmas[0] - previous15dAvg) / previous15dAvg * 100
-					: double.NaN;
+				if (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
+					pcVal = (averageSmas[0] - previous15dAvg) / previous15dAvg * 100;
 			}
-			else // CurrentBar == 0
-			{
-				averageSmas[0] = double.NaN;
-				percentageChange[0] = double.NaN;
-			}
+			percentageChange[0] = pcVal;
 
+			// EMA is calculated on the percentageChange series; it handles initial NaNs gracefully.
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
-			Values[0][0] = emaPercentageChange; // Update the plot series for the EMA line
+			Values[0][0] = emaPercentageChange;
 
-			// --- Step 2: Perform drawing and background coloring ---
-			// This logic requires access to previous bar's data ([1]), so add a basic guard.
-			if (CurrentBar < 1) return;
-
-			// Manual Candle Drawing
-			if (IsFirstTickOfBar)
+			// --- Step 2: Drawing & Other Logic - Requires longest lookback of 50 ---
+			// This entire block is guarded to prevent errors on early bars.
+			if (CurrentBar >= 50)
 			{
-				// Layer 1: Yellow - Base 0
-				string yellowTag = "YellowCandle" + CurrentBar;
-				if (!double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && !double.IsNaN(percentageChange[0]) && emaPercentageChange > Values[0][1])
-					Draw.Rectangle(this, yellowTag, false, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
-				else
-					RemoveDrawObject(yellowTag);
+				if (IsFirstTickOfBar)
+				{
+					// Layer 1: Yellow
+					string yellowTag = "YellowCandle" + CurrentBar;
+					if (!double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && !double.IsNaN(percentageChange[0]) && emaPercentageChange > Values[0][1])
+						Draw.Rectangle(this, yellowTag, false, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
+					else
+						RemoveDrawObject(yellowTag);
 
-				// Layer 2: Green - Base EMA
-				string greenTag = "GreenCandle" + CurrentBar;
-				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] > percentageChange[1])
-					Draw.Rectangle(this, greenTag, false, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
-				else
-					RemoveDrawObject(greenTag);
+					// Layer 2: Green
+					string greenTag = "GreenCandle" + CurrentBar;
+					if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] > percentageChange[1])
+						Draw.Rectangle(this, greenTag, false, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
+					else
+						RemoveDrawObject(greenTag);
 
-				// Layer 3: Red - Base EMA
-				string redTag = "RedCandle" + CurrentBar;
-				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] < percentageChange[1])
-					Draw.Rectangle(this, redTag, false, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
-				else
-					RemoveDrawObject(redTag);
+					// Layer 3: Red
+					string redTag = "RedCandle" + CurrentBar;
+					if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] < percentageChange[1])
+						Draw.Rectangle(this, redTag, false, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
+					else
+						RemoveDrawObject(redTag);
 
-				// Layer 4: Fuchsia (Top Layer) - Base EMA
-				string fuchsiaTag = "FuchsiaCandle" + CurrentBar;
-				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1])
-					Draw.Rectangle(this, fuchsiaTag, false, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
-				else
-					RemoveDrawObject(fuchsiaTag);
+					// Layer 4: Fuchsia (Top Layer)
+					string fuchsiaTag = "FuchsiaCandle" + CurrentBar;
+					if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1])
+						Draw.Rectangle(this, fuchsiaTag, false, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
+					else
+						RemoveDrawObject(fuchsiaTag);
+				}
+
+				// Background Coloring
+				double close2dAgoScaled = GetValueFromPast(Close, 2) * 0.865;
+				double close13dAgoScaled = GetValueFromPast(Close, 13) * 0.772;
+				double minCloseScaled = Math.Min(close2dAgoScaled, close13dAgoScaled);
+
+				int highest50dHighPosition = HighestBar(High, 50);
+				double openAtHighestHigh = GetValueFromPast(Open, highest50dHighPosition);
+				double priceChangeFromHighestHighOpen = double.NaN;
+				if(!double.IsNaN(openAtHighestHigh) && openAtHighestHigh.ApproxCompare(0) != 0)
+					priceChangeFromHighestHighOpen = (Close[0] - openAtHighestHigh) / openAtHighestHigh * 100;
+
+				double waveBottomCatcherSignal = (!double.IsNaN(priceChangeFromHighestHighOpen) && Close[0].ApproxCompare(0) != 0 && ((Close[0] - minCloseScaled) / Close[0] < 0.03 && priceChangeFromHighestHighOpen < -35)) ? 10 : 0;
+
+				double prevClose = GetValueFromPast(Close, 1);
+				double dailyPriceChangePercent = double.NaN;
+				if (!double.IsNaN(prevClose) && prevClose.ApproxCompare(0) != 0)
+					dailyPriceChangePercent = (Close[0] - prevClose) / prevClose * 100;
+
+				macdLineScaled[0] = (EMA(12)[0] - EMA(26)[0]) * 100;
+				double signalLineScaled = EMA(macdLineScaled, 9)[0];
+
+				bool isBgFuchsia = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] >= signalLineScaled;
+				bool isBgBlue = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] < signalLineScaled;
+				bool isBgAqua = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7;
+				bool isBgLime = waveBottomCatcherSignal == 1;
+
+				if(isBgFuchsia) BackBrush = FuchsiaBgBrush;
+				else if (isBgBlue) BackBrush = BlueBrush;
+				else if (isBgAqua) BackBrush = AquaBrush;
+				else if (isBgLime) BackBrush = LimeBrush;
+				else BackBrush = null;
 			}
-
-			// Background Coloring
-			double close2dAgoScaled = GetValueFromPast(Close, 2) * 0.865;
-			double close13dAgoScaled = GetValueFromPast(Close, 13) * 0.772;
-			double minCloseScaled = Math.Min(close2dAgoScaled, close13dAgoScaled);
-
-			int highest50dHighPosition = HighestBar(High, 50);
-			double openAtHighestHigh = GetValueFromPast(Open, highest50dHighPosition);
-			double priceChangeFromHighestHighOpen = double.NaN;
-			if(!double.IsNaN(openAtHighestHigh) && openAtHighestHigh.ApproxCompare(0) != 0)
-				priceChangeFromHighestHighOpen = (Close[0] - openAtHighestHigh) / openAtHighestHigh * 100;
-
-			double waveBottomCatcherSignal = (!double.IsNaN(priceChangeFromHighestHighOpen) && Close[0].ApproxCompare(0) != 0 && ((Close[0] - minCloseScaled) / Close[0] < 0.03 && priceChangeFromHighestHighOpen < -35)) ? 10 : 0;
-
-			double prevClose = GetValueFromPast(Close, 1);
-			double dailyPriceChangePercent = double.NaN;
-			if (!double.IsNaN(prevClose) && prevClose.ApproxCompare(0) != 0)
-				dailyPriceChangePercent = (Close[0] - prevClose) / prevClose * 100;
-
-			macdLineScaled[0] = (EMA(12)[0] - EMA(26)[0]) * 100;
-			double signalLineScaled = EMA(macdLineScaled, 9)[0];
-
-			bool isBgFuchsia = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] >= signalLineScaled;
-			bool isBgBlue = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && !double.IsNaN(signalLineScaled) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7 && macdLineScaled[0] < signalLineScaled;
-			bool isBgAqua = !double.IsNaN(dailyPriceChangePercent) && !double.IsNaN(macdLineScaled[0]) && macdLineScaled[0] < -50 && dailyPriceChangePercent > 7;
-			bool isBgLime = waveBottomCatcherSignal == 1;
-
-			if(isBgFuchsia) BackBrush = FuchsiaBgBrush;
-			else if (isBgBlue) BackBrush = BlueBrush;
-			else if (isBgAqua) BackBrush = AquaBrush;
-			else if (isBgLime) BackBrush = LimeBrush;
-			else BackBrush = null;
 		}
 
 		#region Helpers
