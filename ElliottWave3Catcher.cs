@@ -41,7 +41,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 			if (State == State.SetDefaults)
 			{
 				Description									= @"[blackcat] L1 Elliott Wave3 Catcher";
-				Name										= "ElliottWave3Catcher";
+				Name										= "ElliottWaveCatcher";
 				Calculate									= Calculate.OnBarClose;
 				IsOverlay									= false;
 				DisplayInDataBox							= true;
@@ -79,7 +79,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		protected override void OnBarUpdate()
 		{
-			if (CurrentBar < 50)
+			// Corrected lookback period to 51 to ensure previous bar's data is available for comparison
+			if (CurrentBar < 51)
 			{
 				if (CurrentBar > 0)
 				{
