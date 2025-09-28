@@ -99,39 +99,38 @@ namespace NinjaTrader.NinjaScript.Indicators
 			averageSmas[0] = (sma5 + sma10 + sma20 + sma30) / 4;
 
 			double previous15dAvg = GetValueFromPast(averageSmas, 15);
-			if (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
-				percentageChange[0] = (averageSmas[0] - previous15dAvg) / previous15dAvg * 100;
-			else
-				percentageChange[0] = double.NaN;
+			percentageChange[0] = (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
+				? (averageSmas[0] - previous15dAvg) / previous15dAvg * 100
+				: double.NaN;
 
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
 			Values[0][0] = emaPercentageChange;
 
-			// --- Manual Candle Drawing Logic (Correct Overlay & NaN Check Implementation) ---
+			// --- Manual Candle Drawing Logic (Correct Overlay Implementation) ---
 			if (IsFirstTickOfBar)
 			{
-				// Layer 1: Yellow
+				// Layer 1: Yellow - Base 0
 				string yellowTag = "YellowCandle" + CurrentBar;
 				if (!double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && !double.IsNaN(percentageChange[0]) && emaPercentageChange > Values[0][1])
 					Draw.Rectangle(this, yellowTag, false, 0, 0, 0, percentageChange[0], YellowBrush, YellowBrush, 100);
 				else
 					RemoveDrawObject(yellowTag);
 
-				// Layer 2: Green
+				// Layer 2: Green - Base EMA
 				string greenTag = "GreenCandle" + CurrentBar;
 				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] > percentageChange[1])
 					Draw.Rectangle(this, greenTag, false, 0, emaPercentageChange, 0, percentageChange[0], GreenBrush, GreenBrush, 100);
 				else
 					RemoveDrawObject(greenTag);
 
-				// Layer 3: Red
+				// Layer 3: Red - Base EMA
 				string redTag = "RedCandle" + CurrentBar;
 				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && percentageChange[0] < percentageChange[1])
 					Draw.Rectangle(this, redTag, false, 0, emaPercentageChange, 0, percentageChange[0], RedBrush, RedBrush, 100);
 				else
 					RemoveDrawObject(redTag);
 
-				// Layer 4: Fuchsia (Top Layer)
+				// Layer 4: Fuchsia (Top Layer) - Base EMA
 				string fuchsiaTag = "FuchsiaCandle" + CurrentBar;
 				if (!double.IsNaN(percentageChange[0]) && !double.IsNaN(percentageChange[1]) && !double.IsNaN(emaPercentageChange) && !double.IsNaN(Values[0][1]) && percentageChange[0] < percentageChange[1] && emaPercentageChange > Values[0][1])
 					Draw.Rectangle(this, fuchsiaTag, false, 0, emaPercentageChange, 0, percentageChange[0], FuchsiaBrush, FuchsiaBrush, 100);
