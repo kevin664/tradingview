@@ -79,35 +79,35 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		protected override void OnBarUpdate()
 		{
-			// Corrected lookback period to 51 to ensure previous bar's data is available for comparison
-			if (CurrentBar < 51)
+			// --- Step 1: Perform all calculations and update series ---
+			// This section runs on every bar, populating the series with NaNs until data is sufficient.
+			if (CurrentBar > 0)
 			{
-				if (CurrentBar > 0)
-				{
-					averageSmas[0] = double.NaN;
-					percentageChange[0] = double.NaN;
-					macdLineScaled[0] = double.NaN;
-				}
-				Values[0][0] = double.NaN;
-				return;
+				double sma5 = SMA(5)[0];
+				double sma10 = SMA(10)[0];
+				double sma20 = SMA(20)[0];
+				double sma30 = SMA(30)[0];
+				averageSmas[0] = (sma5 + sma10 + sma20 + sma30) / 4;
+
+				double previous15dAvg = GetValueFromPast(averageSmas, 15);
+				percentageChange[0] = (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
+					? (averageSmas[0] - previous15dAvg) / previous15dAvg * 100
+					: double.NaN;
+			}
+			else // CurrentBar == 0
+			{
+				averageSmas[0] = double.NaN;
+				percentageChange[0] = double.NaN;
 			}
 
-			// --- Calculations ---
-			double sma5 = SMA(5)[0];
-			double sma10 = SMA(10)[0];
-			double sma20 = SMA(20)[0];
-			double sma30 = SMA(30)[0];
-			averageSmas[0] = (sma5 + sma10 + sma20 + sma30) / 4;
-
-			double previous15dAvg = GetValueFromPast(averageSmas, 15);
-			percentageChange[0] = (!double.IsNaN(previous15dAvg) && previous15dAvg.ApproxCompare(0) != 0)
-				? (averageSmas[0] - previous15dAvg) / previous15dAvg * 100
-				: double.NaN;
-
 			double emaPercentageChange = EMA(percentageChange, 8)[0];
-			Values[0][0] = emaPercentageChange;
+			Values[0][0] = emaPercentageChange; // Update the plot series for the EMA line
 
-			// --- Manual Candle Drawing Logic (Correct Overlay Implementation) ---
+			// --- Step 2: Perform drawing and background coloring ---
+			// This logic requires access to previous bar's data ([1]), so add a basic guard.
+			if (CurrentBar < 1) return;
+
+			// Manual Candle Drawing
 			if (IsFirstTickOfBar)
 			{
 				// Layer 1: Yellow - Base 0
@@ -139,7 +139,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 					RemoveDrawObject(fuchsiaTag);
 			}
 
-			// --- Background Coloring and other calculations ---
+			// Background Coloring
 			double close2dAgoScaled = GetValueFromPast(Close, 2) * 0.865;
 			double close13dAgoScaled = GetValueFromPast(Close, 13) * 0.772;
 			double minCloseScaled = Math.Min(close2dAgoScaled, close13dAgoScaled);
